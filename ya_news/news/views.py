@@ -29,11 +29,10 @@ class NewsDetail(generic.DetailView):
     template_name = 'news/detail.html'
 
     def get_object(self, queryset=None):
-        obj = get_object_or_404(
+        return get_object_or_404(
             self.model.objects.prefetch_related('comment_set__author'),
             pk=self.kwargs['pk']
         )
-        return obj
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
