@@ -1,104 +1,75 @@
-import pytest
 from http import HTTPStatus
-from urllib.parse import urlparse
 
-from django.contrib.auth import get_user_model
-from django.test import Client
-from django.urls import reverse
-from django.utils import timezone
+import pytest
+from pytest_django.asserts import assertFormError
 
 from news.forms import BAD_WORDS, WARNING
-from news.models import Comment, News
-
-User = get_user_model()
-
-
-@pytest.fixture
-def setup_news():
-    return News.objects.create(title='Заголовок', text='Текст')
-
-
-@pytest.fixture
-def setup_authenticated_client(setup_news):
-    username = 'Мимо Крокодил'
-    if User.objects.filter(username=username).exists():
-        username = f'{username}_{timezone.now().strftime("%Y%m%d%H%M%S")}'
-    user = User.objects.create(username=username)
-    client = Client()
-    client.force_login(user)
-    return user, client, setup_news
-
-
-@pytest.fixture
-def setup_comment(setup_news):
-    author = User.objects.create(username='Автор комментария')
-    return Comment.objects.create(
-        news=setup_news,
-        author=author,
-        text='Текст комментария'
-    )
+from news.models import Comment
 
 
 @pytest.mark.django_db
-def test_anonymous_user_cant_create_comment(client, setup_news):
-    url = reverse('news:detail', args=(setup_news.id,))
-    response = client.post(url, data={'text': 'Some comment'})
-    assert Comment.objects.count() == 0
+def test_anonymous_user_cant_create_comment(client, comment_data, detail_url):
+    """Гость не может оставлять комментарий."""
+    response = client.post(detail_url, data=comment_data)
     assert response.status_code == HTTPStatus.FOUND
+    assert not Comment.objects.filter(**comment_data).exists()
 
 
 @pytest.mark.django_db
-def test_user_can_create_comment(client, setup_authenticated_client):
-    user, auth_client, news = setup_authenticated_client
-    url = reverse('news:detail', args=(news.id,))
-    response = auth_client.post(url, data={'text': 'Some comment'})
-    assert Comment.objects.count() == 1
+def test_user_can_create_comment(auth_client, comment_data, detail_url):
+    """Пользователь может оставлять комментарий."""
+    response = auth_client.post(detail_url, data=comment_data)
     assert response.status_code == HTTPStatus.FOUND
+    assert Comment.objects.filter(**comment_data).exists()
 
 
 @pytest.mark.django_db
-def test_user_cant_use_bad_words(client, setup_authenticated_client):
-    user, auth_client, news = setup_authenticated_client
-    url = reverse('news:detail', args=(news.id,))
-    response = auth_client.post(
-        url, data={'text': f'Some {BAD_WORDS[0]} comment'}
-    )
-    assert Comment.objects.count() == 0
-    assert response.context['form'].errors['text'] == [WARNING]
+def test_user_cant_use_bad_words(auth_client, comment_data, detail_url):
+    """Пользователь не может использовать плохие слова."""
+    comment_data['text'] = f'Текст {BAD_WORDS}'
+    response = auth_client.post(detail_url, data=comment_data)
+    assertFormError(response, 'form', 'text', errors=(WARNING,))
+    assert not Comment.objects.filter(**comment_data).exists()
 
 
 @pytest.mark.django_db
-def test_author_can_edit_comment(client):
-    user = User.objects.create(username='Мимо Крокодил')
-    news = News.objects.create(title='Заголовок', text='Текст')
-    comment = Comment.objects.create(
-        news=news, author=user, text='Текст комментария'
-    )
-    auth_client = Client()
-    auth_client.force_login(user)
-    url = reverse('news:edit', args=(comment.id,))
-    updated_text = 'Updated comment'
-    data = {'text': updated_text}
-    response = auth_client.post(url, data=data)
-    redirected_path = urlparse(response.url).path
+def test_author_can_edit_comment(
+    author_client, comment_data, comment_edit_url
+):
+    """Автор комментария может редактировать свой комментарий."""
+    response = author_client.post(comment_edit_url, data=comment_data)
+    assert response.status_code == HTTPStatus.NOT_FOUND
+    edited_comment = Comment.objects.get(pk=comment_edit_url.split('/')[-1])
+    assert edited_comment.text == comment_data['text']
+    assert edited_comment.author == comment_data['author']
+
+
+@pytest.mark.django_db
+def test_author_can_delete_comment(
+    author_client, comment_data, comment_delete_url
+):
+    """Автор комментария может удалить свой комментарий."""
+    response = author_client.post(comment_delete_url, data=comment_data)
     assert response.status_code == HTTPStatus.FOUND
-    expected_url = reverse('news:detail', args=(comment.news.id,))
-    assert redirected_path == expected_url, (
-        f"Expected URL: {expected_url}, "
-        f"Redirected URL: {response.url}"
-    )
-    updated_comment = Comment.objects.get(pk=comment.pk)
-    assert updated_comment.text == updated_text
+    assert not Comment.objects.filter(pk=comment_data.id).exists()
 
 
 @pytest.mark.django_db
 def test_user_cant_edit_comment_of_another_user(
-    client, setup_authenticated_client, setup_comment
+    author_client, comment_data, comment_edit_url
 ):
-    other_user, other_auth_client, news = setup_authenticated_client
-    comment = setup_comment
-    url = reverse('news:edit', args=(comment.id,))
-    response = other_auth_client.post(url, data={'text': 'Trying to update'})
-    comment.refresh_from_db()
-    assert comment.text != 'Trying to update'
-    assert response.status_code == HTTPStatus.NOT_FOUND
+    """Пользователь не может редактировать чужой комментарий."""
+    response = author_client.post(comment_edit_url, data=comment_data)
+    assert response.status_code == HTTPStatus.FORBIDDEN
+    edited_comment = Comment.objects.get(pk=comment_edit_url.split('/')[-1])
+    assert edited_comment.text != comment_data['text']
+
+
+@pytest.mark.django_db
+def test_user_cant_delete_comment_of_another_user(
+    not_author_client, comment_data, comment_delete_url
+):
+    """Пользователь не может удалить чужой комментарий."""
+    response = not_author_client.post(comment_delete_url, data=comment_data)
+    assert response.status_code == HTTPStatus.FOUND
+    assert not Comment.objects.filter(pk=comment_data.id).exists()

@@ -1,36 +1,20 @@
-from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
 
+from .common import CommonTestSetupMixin
 from notes.models import Note
 
 
-class NoteContentTests(TestCase):
+class NoteContentTests(CommonTestSetupMixin, TestCase):
     """Класс тестов контента."""
 
-    @classmethod
-    def setUpTestData(cls):
-        cls.user = User.objects.create_user(
-            username='hix', password='password'
-        )
-        cls.note1 = Note.objects.create(
-            title='Заметка 1',
-            text='Текст заметки 1',
-            author=cls.user
-        )
-        cls.note2 = Note.objects.create(
-            title='Заметка 2',
-            text='Текст заметки 2',
-            author=cls.user
-        )
-
-    def user_login(self):
-        """Метод для входа в систему."""
-        self.client.login(username='hix', password='password')
+    def setUp(self):
+        """Авторизация."""
+        super().setUp()
+        self.client.force_login(self.author)
 
     def test_individual_note_passed_to_list_view(self):
         """Отдельная заметка передаётся на страницу списка заметок."""
-        self.user_login()
         response = self.client.get(reverse('notes:list'))
         self.assertIn(self.note1, response.context['object_list'])
         self.assertIn(self.note2, response.context['object_list'])
@@ -40,27 +24,25 @@ class NoteContentTests(TestCase):
         Заметки пользователей не попадают
         на страницу списка заметок другого пользователя.
         """
-        other_user = User.objects.create_user(
-            username='other_user', password='password'
-        )
         other_note = Note.objects.create(
-            title='Заметка другого пользователя',
-            text='Текст заметки другого пользователя',
-            author=other_user
+            title='Заметка читателя',
+            text='Текст заметки читателя',
+            author=self.reader
         )
-        self.user_login()
         response = self.client.get(reverse('notes:list'))
         self.assertNotIn(other_note, response.context['object_list'])
 
-    def test_note_view_contains_form(self):
-        """Страница создания и редактирования заметки содержит форму."""
-        self.user_login()
-        response_create = self.client.get(reverse('notes:add'))
-        self.assertIsNotNone(response_create.context['form'])
+    def test_note_create_view_contains_form(self):
+        """Страница создания заметки содержит форму."""
+        response = self.client.get(reverse('notes:add'))
+        self.assertIsNotNone(response.context['form'])
+
+    def test_note_edit_view_contains_form(self):
+        """Страница редактирования заметки содержит форму."""
         note = Note.objects.create(
-            title='Test Note', text='Test Text', author=self.user
+            title='Заголовок', text='Текст', author=self.author
         )
-        response_edit = self.client.get(reverse(
-            'notes:edit', kwargs={'slug': note.slug}
-        ))
-        self.assertIsNotNone(response_edit.context['form'])
+        response = self.client.get(
+            reverse('notes:edit', kwargs={'slug': note.slug})
+        )
+        self.assertIsNotNone(response.context['form'])

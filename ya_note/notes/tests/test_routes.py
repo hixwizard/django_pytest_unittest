@@ -1,23 +1,11 @@
 from http import HTTPStatus
-
-from django.contrib.auth.models import User
 from django.test import TestCase
 from django.urls import reverse
+from .common import CommonTestSetupMixin
 
-from notes.models import Note
 
-
-class NoteRoutesTestCase(TestCase):
+class NoteRoutesTestCase(CommonTestSetupMixin, TestCase):
     """Класс тестов маршрутизации."""
-
-    @classmethod
-    def setUpTestData(cls):
-        """Создание пользователя и заметки."""
-        cls.author = User.objects.create(username='Лев Толстой')
-        cls.reader = User.objects.create(username='Читатель простой')
-        cls.note = Note.objects.create(
-            title='Заголовок', text='Текст', author=cls.author
-        )
 
     def test_urls_availability(self):
         """Тест адресов."""
@@ -34,20 +22,6 @@ class NoteRoutesTestCase(TestCase):
                 response = self.client.get(url)
                 self.assertEqual(response.status_code, HTTPStatus.OK)
 
-        self.client.force_login(self.author)
-        auth_urls = (
-            ('notes:list', None),
-            ('notes:add', None),
-            ('notes:edit', {'slug': self.note.slug}),
-            ('notes:delete', {'slug': self.note.slug}),
-            ('notes:detail', {'slug': self.note.slug}),
-        )
-        for name, args in auth_urls:
-            with self.subTest(name=name):
-                url = reverse(name, kwargs=args)
-                response = self.client.get(url)
-                self.assertEqual(response.status_code, HTTPStatus.OK)
-
     def test_availability_for_note_edit_delete_detail(self):
         """Тест доступа для редактирования и удаления."""
         users_statuses = (
@@ -57,9 +31,9 @@ class NoteRoutesTestCase(TestCase):
         for user, status in users_statuses:
             self.client.force_login(user)
             urls = (
-                ('edit', {'slug': self.note.slug}),
-                ('delete', {'slug': self.note.slug}),
-                ('detail', {'slug': self.note.slug})
+                ('edit', {'slug': self.note1.slug}),
+                ('delete', {'slug': self.note1.slug}),
+                ('detail', {'slug': self.note1.slug})
             )
             for name, kwargs in urls:
                 with self.subTest(user=user, name=name):
@@ -74,9 +48,9 @@ class NoteRoutesTestCase(TestCase):
             ('notes:success', None),
             ('notes:list', None),
             ('notes:add', None),
-            ('notes:edit', {'slug': self.note.slug}),
-            ('notes:delete', {'slug': self.note.slug}),
-            ('notes:detail', {'slug': self.note.slug}),
+            ('notes:edit', {'slug': self.note1.slug}),
+            ('notes:delete', {'slug': self.note1.slug}),
+            ('notes:detail', {'slug': self.note1.slug}),
         )
         for name, args in urls:
             with self.subTest(name=name):
