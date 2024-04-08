@@ -1,24 +1,21 @@
-from datetime import timedelta, timezone
+from datetime import timedelta
 
 import pytest
+from django.contrib.auth import get_user_model
 from django.conf import settings
-from django.test.client import Client
 from django.urls import reverse
-
-from news.models import News, Comment
 from django.utils import timezone
+from django.test import Client
+
+from news.forms import BAD_WORDS
+from news.models import Comment, News
 
 
 @pytest.fixture
-def author(django_user_model):
+def author():
     """Создание пользователя с ролью автора."""
-    return django_user_model.objects.create(username='Автор')
-
-
-@pytest.fixture
-def not_author(django_user_model):
-    """Создание обычного пользователя."""
-    return django_user_model.objects.create(username='Не автор')
+    User = get_user_model()
+    return User.objects.create(username='Автор')
 
 
 @pytest.fixture
@@ -30,111 +27,126 @@ def author_client(author):
 
 
 @pytest.fixture
-def not_author_client(not_author):
+def reader():
+    """Создание обычного пользователя."""
+    User = get_user_model()
+    return User.objects.create(username='Читатель')
+
+
+@pytest.fixture
+def reader_client(reader):
     """Создание обычного клиента."""
     client = Client()
-    client.force_login(not_author)
+    client.force_login(reader)
     return client
 
 
 @pytest.fixture
-def new():
+def news(author):
     """Создание новости."""
     return News.objects.create(
         title='Заголовок',
-        text='тест новости',
+        text='Текст 0',
+        date=timezone.now()
     )
 
 
 @pytest.fixture
-def pk_for_args(new):
-    """Ключ для заметки."""
-    return (new.pk,)
-
-
-@pytest.fixture
-def create_news_list():
+def list_news():
     """Создание списка новостей."""
-    today = timezone.now()
-    all_news = [
-        News(
-            title=f'Новость {index}',
-            text='Просто текст.',
-            date=today - timedelta(days=index)
+    news_list = []
+    for i in range(settings.NEWS_COUNT_ON_HOME_PAGE + 1):
+        news = News(
+            title='Заголовок',
+            text='Текст {index}',
+            date=timezone.now() + timedelta(days=i)
         )
-        for index in range(settings.NEWS_COUNT_ON_HOME_PAGE + 1)
-    ]
-    News.objects.bulk_create(all_news)
+        news_list.append(news)
+    News.objects.bulk_create(news_list)
 
 
 @pytest.fixture
-def create_comments_list(author, new):
-    """Создание списка комментариев к новости."""
-    comments = [
-        {'text': f'Комментарий {i}', 'author': author, 'news': new}
-        for i in range(1, 11)
-    ]
-    return Comment.objects.bulk_create([Comment(**data) for data in comments])
+def comments_list(author, news):
+    """Создание списка новостей."""
+    now = timezone.now()
+    for i in range(10):
+        comment = Comment.objects.create(
+            news=news,
+            author=author,
+            text='Test commen {i}',
+        )
+        comment.created = now + timedelta(days=i)
+        comment.save()
 
 
 @pytest.fixture
-def comment_data():
+def comment(author, news):
+    """Создание комментария."""
+    return Comment.objects.create(
+        news=news,
+        author=author,
+        text='Test comment',
+    )
+
+
+@pytest.fixture
+def comment_id(comment):
+    """Присвоение id для комментария."""
+    return (comment.id),
+
+
+@pytest.fixture
+def form_data():
     """Кверисет комментария."""
     return {
-        'text': 'Some comment'
+        'title': 'Test title',
+        'text': 'Test text',
     }
 
 
 @pytest.fixture
-def home_url():
+def url_home():
     """Адрес домашней страницы."""
     return reverse('news:home')
 
 
 @pytest.fixture
-def login_url():
+def url_detail(news):
+    """Адрес страницы с новостями"""
+    return reverse('news:detail', args=(news.id,))
+
+
+@pytest.fixture
+def url_edit(comment):
+    """URL для редактирования комментария."""
+    return reverse('news:edit', args=(comment.id,))
+
+
+@pytest.fixture
+def url_delete(comment):
+    """URL для удаления комментария."""
+    return reverse('news:delete', args=(comment.id,))
+
+
+@pytest.fixture
+def url_login():
     """Адрес страницы входа."""
     return reverse('users:login')
 
 
 @pytest.fixture
-def logout_url():
+def url_logout():
     """Адрес страницы выхода."""
     return reverse('users:logout')
 
 
 @pytest.fixture
-def detail_url(new):
-    """Адрес страницы с новостями"""
-    return reverse('news:detail', args=[new.pk])
+def url_signup():
+    """Адрес страницы решистриции."""
+    return reverse('users:signup')
 
 
 @pytest.fixture
-def comment_edit_url(create_comments_list):
-    """URL для редактирования комментария."""
-    return reverse('news:edit', args=(create_comments_list[0].pk,))
-
-
-@pytest.fixture
-def comment_delete_url(create_comments_list):
-    """URL для удаления комментария."""
-    return reverse('news:delete', args=(create_comments_list[0].pk,))
-
-
-@pytest.fixture
-def news_data():
-    """Кверисет новости."""
-    return {
-        'title': 'Новый заголовок',
-        'text': 'Новый текст',
-        'date': timezone.now(),
-        'author': 'Автор'
-    }
-
-
-@pytest.fixture
-def comment_data():
-    """Кверисет комментария."""
-    return {
-        'text': 'Some comment'
-    }
+def bad_words():
+    """Плохие слова."""
+    return {'text': f' Текст {BAD_WORDS[0]}, текст.'}

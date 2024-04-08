@@ -1,47 +1,48 @@
-import pytest
 from http import HTTPStatus
-from django.urls import reverse
+
+import pytest
 from pytest_django.asserts import assertRedirects
 
+pytestmark = pytest.mark.django_db
+
 
 @pytest.mark.parametrize(
-    'parametrized_client, expected_status',
+    'client_fixture, expected_status',
     (
-        (pytest.lazy_fixture('not_author_client'), HTTPStatus.NOT_FOUND),
-        (pytest.lazy_fixture('author_client'), HTTPStatus.OK)
-    ),
+        ('client', HTTPStatus.OK),
+        ('admin_client', HTTPStatus.NOT_FOUND),
+        ('author_client', HTTPStatus.OK)
+    )
 )
 @pytest.mark.parametrize(
-    'name', (
-        'news:detail',
-        'news:edit',
-        'news:delete',
-        'news:home',
-        'users:login',
-        'users:logout'
-    ))
-@pytest.mark.django_db
-def test_pages_availability_for_different_users(
-        parametrized_client, name, expected_status
+    'url_fixture',
+    (
+        'url_home',
+        'url_login',
+        'url_logout',
+        'url_signup',
+        'url_detail'
+    )
+)
+def test_page_availability(
+    client_fixture, expected_status, url_fixture, request
 ):
-    """Проверка статусов всех страниц для разных клиентов."""
-    url = reverse(name)
-    response = parametrized_client.get(url)
+    client = request.getfixturevalue(client_fixture)
+    url = request.getfixturevalue(url_fixture)
+    response = client.get(url)
     assert response.status_code == expected_status
 
 
 @pytest.mark.parametrize(
-    'name, args',
+    'client_fixture, url_fixture',
     (
-        ('news:edit', pytest.lazy_fixture('pk_for_args')),
-        ('news:delete', pytest.lazy_fixture('pk_for_args')),
-    ),
+        ('client', 'url_edit'),
+        ('client', 'url_delete')
+    )
 )
-@pytest.mark.django_db
-def test_redirects(client, name, args):
-    """Проверка редиректов."""
-    login_url = reverse('users:login')
-    url = reverse(name, args=args)
-    expected_url = f'{login_url}?next={url}'
+def test_redirects(client_fixture, url_fixture, url_login, request):
+    client = request.getfixturevalue(client_fixture)
+    url = request.getfixturevalue(url_fixture)
+    expected_url = f'{url_login}?next={url}'
     response = client.get(url)
     assertRedirects(response, expected_url)
