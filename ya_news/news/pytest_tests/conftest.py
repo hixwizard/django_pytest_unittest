@@ -90,12 +90,6 @@ def comment(author, news):
 
 
 @pytest.fixture
-def comment_id(comment):
-    """Присвоение id для комментария."""
-    return (comment.id),
-
-
-@pytest.fixture
 def form_data():
     """Кверисет комментария."""
     return {
