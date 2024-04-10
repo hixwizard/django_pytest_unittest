@@ -10,11 +10,12 @@ from django.test import Client
 from news.forms import BAD_WORDS
 from news.models import Comment, News
 
+User = get_user_model()
+
 
 @pytest.fixture
 def author():
     """Создание пользователя с ролью автора."""
-    User = get_user_model()
     return User.objects.create(username='Автор')
 
 
@@ -29,7 +30,6 @@ def author_client(author):
 @pytest.fixture
 def reader():
     """Создание обычного пользователя."""
-    User = get_user_model()
     return User.objects.create(username='Читатель')
 
 

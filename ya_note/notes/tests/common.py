@@ -26,12 +26,12 @@ class CommonTestSetupMixin(TestCase):
         cls.author_client.force_login(cls.author)
         cls.reader_client = Client()
         cls.reader_client.force_login(cls.reader)
-
+    SLUG = {'slug': 'some-slug'}
     LIST_VIEW_URL = reverse('notes:list')
     ADD_NOTE_URL = reverse('notes:add')
-    EDIT_NOTE_URL = reverse('notes:edit', kwargs={'slug': 'some-slug'})
-    DELETE_NOTE_URL = reverse('notes:delete', kwargs={'slug': 'some-slug'})
-    DETAIL_NOTE_URL = reverse('notes:detail', kwargs={'slug': 'some-slug'})
+    EDIT_NOTE_URL = reverse('notes:edit', kwargs=SLUG)
+    DELETE_NOTE_URL = reverse('notes:delete', kwargs=SLUG)
+    DETAIL_NOTE_URL = reverse('notes:detail', kwargs=SLUG)
     HOME_URL = reverse('notes:home')
     LOGIN_URL = reverse('users:login')
     LOGOUT_URL = reverse('users:logout')

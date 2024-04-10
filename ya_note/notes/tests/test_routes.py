@@ -59,11 +59,9 @@ class NoteRoutesTestCase(CommonTestSetupMixin):
             ('notes:delete', {'slug': self.note1.slug}),
             ('notes:detail', {'slug': self.note1.slug}),
         )
-
-        login_url = reverse('users:login')
         for name, args in REDIRECT_URLS:
             url = reverse(name, kwargs=args)
             with self.subTest(name=name):
-                redirect_url = f'{login_url}?next={url}'
+                redirect_url = f'{CommonTestSetupMixin.LOGIN_URL}?next={url}'
                 response = self.client.get(url)
                 self.assertRedirects(response, redirect_url)

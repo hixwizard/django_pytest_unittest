@@ -27,11 +27,14 @@ def test_auth_user_can_create_comment(
     author_client, author, form_data, url_detail, news
 ):
     """Пользователь может оставлять комментарий."""
-    initial_comments_count = Comment.objects.count()
+    initial_comments = set(Comment.objects.all())
     response = author_client.post(url_detail, data=form_data)
-    comment = Comment.objects.last()
+    final_comments = set(Comment.objects.all())
+    new_comments = final_comments - initial_comments
+    comment = new_comments.pop()
     assert response.status_code == HTTPStatus.FOUND
-    assert Comment.objects.count() == initial_comments_count + 1
+    assert Comment.objects.count() == len(initial_comments) + 1
+    assert comment is not None
     assert comment.news == news
     assert comment.author == author
     assert comment.text == form_data['text']

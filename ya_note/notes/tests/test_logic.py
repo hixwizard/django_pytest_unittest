@@ -1,6 +1,6 @@
 from http import HTTPStatus
 
-from django.test import Client
+from django.http import HttpResponseRedirect
 from django.urls import reverse
 from pytils.translit import slugify
 
@@ -14,15 +14,18 @@ class NoteLogicTests(CommonTestSetupMixin):
 
     def setUp(self):
         super().setUp()
-        self.client = Client()
         self.client.force_login(self.author)
 
     def test_authenticated_user_can_create_note(self):
         """Проверка, что залогиненный пользователь может создать заметку."""
         initial_note_count = Note.objects.count()
         response = self.client.post(self.ADD_NOTE_URL, self.new_note_data)
+        self.assertIsInstance(response, HttpResponseRedirect)
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(Note.objects.count(), initial_note_count + 1)
+        last_note = Note.objects.last()
+        self.assertEqual(last_note.author, self.author)
+        self.assertEqual(last_note.text, self.new_note_data['text'])
 
     def test_anonymous_user_cannot_create_note(self):
         """Проверка, что анонимный пользователь не может создать заметку."""
@@ -57,8 +60,8 @@ class NoteLogicTests(CommonTestSetupMixin):
     def test_slug_generation(self):
         """Проверка генерации slug."""
         note = Note.objects.create(
-            title="Test note",
-            text="Text of the test note",
+            title='Test note',
+            text='Text of the test note',
             author=self.author
         )
         generated_slug = slugify(note.title)
@@ -71,13 +74,15 @@ class NoteLogicTests(CommonTestSetupMixin):
             text='Текст тестовой заметки',
             author=self.author
         )
+        updated_title = 'Новый заголовок'
+        updated_text = 'Новый текст'
         self.client.post(
             reverse('notes:edit', kwargs={'slug': note.slug}),
-            {'title': 'Новый заголовок', 'text': 'Новый текст'}
+            {'title': updated_title, 'text': updated_text}
         )
         updated_note = Note.objects.get(id=note.id)
-        self.assertEqual(updated_note.title, 'Новый заголовок')
-        self.assertEqual(updated_note.text, 'Новый текст')
+        self.assertEqual(updated_note.title, updated_title)
+        self.assertEqual(updated_note.text, updated_text)
 
     def test_user_can_delete_own_note(self):
         """Проверка, что пользователь может удалить свою заметку."""
