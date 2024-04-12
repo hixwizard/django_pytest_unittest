@@ -1,8 +1,10 @@
-from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
 from django.urls import reverse
 
 from notes.models import Note
+
+User = get_user_model()
 
 
 class CommonTestSetupMixin(TestCase):
@@ -26,6 +28,7 @@ class CommonTestSetupMixin(TestCase):
         cls.author_client.force_login(cls.author)
         cls.reader_client = Client()
         cls.reader_client.force_login(cls.reader)
+
     SLUG = {'slug': 'some-slug'}
     LIST_VIEW_URL = reverse('notes:list')
     ADD_NOTE_URL = reverse('notes:add')

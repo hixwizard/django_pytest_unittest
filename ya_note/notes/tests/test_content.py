@@ -1,5 +1,3 @@
-from django.contrib.auth.models import User
-from django.test import Client
 from django.urls import reverse
 from django.utils.text import slugify
 
@@ -10,26 +8,19 @@ from notes.models import Note
 class NoteContentTests(CommonTestSetupMixin):
     """Класс тестов контента."""
 
-    def setUp(self):
-        """Уникальный тестовый пользователь и клиент."""
-        super().setUp()
-        self.tester = User.objects.create(username='tester')
-        self.tester_client = Client()
-        self.tester_client.force_login(self.tester)
-
     def test_individual_note_passed_to_list_view(self):
         """Отдельная заметка передаётся на страницу списка заметок."""
-        tester_note1 = Note.objects.create(
-            title='Заголовок1', text='Текст1', author=self.tester,
+        test_note1 = Note.objects.create(
+            title='Заголовок1', text='Текст1', author=self.author,
             slug=slugify('Заголовок1')
         )
-        tester_note2 = Note.objects.create(
-            title='Заголовок2', text='Текст2', author=self.tester,
+        test_note2 = Note.objects.create(
+            title='Заголовок2', text='Текст2', author=self.author,
             slug=slugify('Заголовок2')
         )
-        response = self.tester_client.get(self.LIST_VIEW_URL)
-        self.assertIn(tester_note1, response.context['object_list'])
-        self.assertIn(tester_note2, response.context['object_list'])
+        response = self.author_client.get(self.LIST_VIEW_URL)
+        self.assertIn(test_note1, response.context['object_list'])
+        self.assertIn(test_note2, response.context['object_list'])
 
     def test_notes_of_other_users_not_in_list_view(self):
         """
@@ -41,20 +32,20 @@ class NoteContentTests(CommonTestSetupMixin):
             text='Текст заметки читателя',
             author=self.author
         )
-        response = self.tester_client.get(self.LIST_VIEW_URL)
+        response = self.reader_client.get(self.LIST_VIEW_URL)
         self.assertNotIn(other_note, response.context['object_list'])
 
     def test_note_create_view_contains_form(self):
         """Страница создания заметки содержит форму."""
-        response = self.tester_client.get(self.ADD_NOTE_URL)
+        response = self.author_client.get(self.ADD_NOTE_URL)
         self.assertIsNotNone(response.context['form'])
 
     def test_note_edit_view_contains_form(self):
         """Страница редактирования заметки содержит форму."""
         note = Note.objects.create(
-            title='Заголовок', text='Текст', author=self.tester
+            title='Заголовок', text='Текст', author=self.author
         )
-        response = self.tester_client.get(
+        response = self.author_client.get(
             reverse('notes:edit', kwargs={'slug': note.slug})
         )
         self.assertIsNotNone(response.context['form'])

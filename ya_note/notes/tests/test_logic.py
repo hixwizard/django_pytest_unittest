@@ -12,14 +12,12 @@ from notes.forms import WARNING
 class NoteLogicTests(CommonTestSetupMixin):
     """Класс тестов логики."""
 
-    def setUp(self):
-        super().setUp()
-        self.client.force_login(self.author)
-
     def test_authenticated_user_can_create_note(self):
         """Проверка, что залогиненный пользователь может создать заметку."""
         initial_note_count = Note.objects.count()
-        response = self.client.post(self.ADD_NOTE_URL, self.new_note_data)
+        response = self.author_client.post(
+            self.ADD_NOTE_URL, self.new_note_data
+        )
         self.assertIsInstance(response, HttpResponseRedirect)
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(Note.objects.count(), initial_note_count + 1)
@@ -29,7 +27,6 @@ class NoteLogicTests(CommonTestSetupMixin):
 
     def test_anonymous_user_cannot_create_note(self):
         """Проверка, что анонимный пользователь не может создать заметку."""
-        self.client.logout()
         initial_note_count = Note.objects.count()
         response = self.client.post(self.ADD_NOTE_URL, self.new_note_data)
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
@@ -38,13 +35,13 @@ class NoteLogicTests(CommonTestSetupMixin):
     def test_unique_slug_generation(self):
         """Проверка, что нельзя создать две заметки с одинаковым slug."""
         slug = 'my-slug'
-        first_response = self.client.post(self.ADD_NOTE_URL, {
+        first_response = self.author_client.post(self.ADD_NOTE_URL, {
             'title': 'First note',
             'text': 'Text of first note',
             'slug': slug
         })
         self.assertEqual(first_response.status_code, HTTPStatus.FOUND)
-        second_response = self.client.post(self.ADD_NOTE_URL, {
+        second_response = self.author_client.post(self.ADD_NOTE_URL, {
             'title': 'Second note',
             'text': 'Text of second note',
             'slug': slug
@@ -76,7 +73,7 @@ class NoteLogicTests(CommonTestSetupMixin):
         )
         updated_title = 'Новый заголовок'
         updated_text = 'Новый текст'
-        self.client.post(
+        self.author_client.post(
             reverse('notes:edit', kwargs={'slug': note.slug}),
             {'title': updated_title, 'text': updated_text}
         )
@@ -91,7 +88,9 @@ class NoteLogicTests(CommonTestSetupMixin):
             text='Текст заметки',
             author=self.author
         )
-        self.client.post(reverse('notes:delete', kwargs={'slug': note.slug}))
+        self.author_client.post(reverse(
+            'notes:delete', kwargs={'slug': note.slug})
+        )
         self.assertFalse(Note.objects.filter(id=note.id).exists())
 
     def test_user_cannot_update_other_users_note(self):
@@ -99,9 +98,9 @@ class NoteLogicTests(CommonTestSetupMixin):
         other_note = Note.objects.create(
             title='Заметка другого пользователя',
             text='Текст заметки',
-            author=self.reader
+            author=self.author
         )
-        response = self.client.post(
+        response = self.reader_client.post(
             reverse('notes:edit', kwargs={'slug': other_note.slug}),
             {'title': 'Попытка изменения чужой заметки', 'text': 'Новый текст'}
         )
@@ -114,5 +113,5 @@ class NoteLogicTests(CommonTestSetupMixin):
             text='Текст заметки',
             author=self.reader
         )
-        self.client.post(self.DELETE_NOTE_URL)
+        self.reader_client.post(self.DELETE_NOTE_URL)
         self.assertTrue(Note.objects.filter(id=other_note.id).exists())
