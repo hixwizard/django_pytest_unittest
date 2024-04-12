@@ -66,32 +66,22 @@ class NoteLogicTests(CommonTestSetupMixin):
 
     def test_user_can_update_own_note(self):
         """Проверка, что пользователь может редактировать свою заметку."""
-        note = Note.objects.create(
-            title='Тестовая заметка',
-            text='Текст тестовой заметки',
-            author=self.author
-        )
         updated_title = 'Новый заголовок'
         updated_text = 'Новый текст'
         self.author_client.post(
-            reverse('notes:edit', kwargs={'slug': note.slug}),
+            reverse('notes:edit', kwargs={'slug': self.note1.slug}),
             {'title': updated_title, 'text': updated_text}
         )
-        updated_note = Note.objects.get(id=note.id)
+        updated_note = Note.objects.get(id=self.note1.id)
         self.assertEqual(updated_note.title, updated_title)
         self.assertEqual(updated_note.text, updated_text)
 
     def test_user_can_delete_own_note(self):
         """Проверка, что пользователь может удалить свою заметку."""
-        note = Note.objects.create(
-            title='Заметка для удаления',
-            text='Текст заметки',
-            author=self.author
-        )
         self.author_client.post(reverse(
-            'notes:delete', kwargs={'slug': note.slug})
+            'notes:delete', kwargs={'slug': self.note1.slug})
         )
-        self.assertFalse(Note.objects.filter(id=note.id).exists())
+        self.assertFalse(Note.objects.filter(id=self.note1.id).exists())
 
     def test_user_cannot_update_other_users_note(self):
         """Проверка, что пользователь не может редактировать чужую заметку."""
@@ -108,10 +98,5 @@ class NoteLogicTests(CommonTestSetupMixin):
 
     def test_user_cannot_delete_other_users_note(self):
         """Проверка, что пользователь не может удалить чужую заметку."""
-        other_note = Note.objects.create(
-            title='Заметка для удаления другого пользователя',
-            text='Текст заметки',
-            author=self.reader
-        )
         self.reader_client.post(self.DELETE_NOTE_URL)
-        self.assertTrue(Note.objects.filter(id=other_note.id).exists())
+        self.assertTrue(Note.objects.filter(id=self.note1.id).exists())
