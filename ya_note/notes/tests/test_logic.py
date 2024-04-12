@@ -56,13 +56,8 @@ class NoteLogicTests(CommonTestSetupMixin):
 
     def test_slug_generation(self):
         """Проверка генерации slug."""
-        note = Note.objects.create(
-            title='Test note',
-            text='Text of the test note',
-            author=self.author
-        )
-        generated_slug = slugify(note.title)
-        self.assertEqual(note.slug, generated_slug)
+        generated_slug = slugify(self.note1.title)
+        self.assertEqual(self.note1.slug, generated_slug)
 
     def test_user_can_update_own_note(self):
         """Проверка, что пользователь может редактировать свою заметку."""
