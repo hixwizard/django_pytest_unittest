@@ -12,6 +12,7 @@ class CommonTestSetupMixin(TestCase):
 
     @classmethod
     def setUpTestData(cls):
+        cls.guest_client = Client()
         cls.author = User.objects.create(username='Лев Толстой')
         cls.reader = User.objects.create(username='Читатель простой')
         cls.note1 = Note.objects.create(

@@ -21,7 +21,7 @@ class NoteLogicTests(CommonTestSetupMixin):
         self.assertIsInstance(response, HttpResponseRedirect)
         self.assertEqual(response.status_code, HTTPStatus.FOUND)
         self.assertEqual(Note.objects.count(), initial_note_count + 1)
-        last_note = Note.objects.last()
+        last_note = Note.objects.latest('pk')
         self.assertEqual(last_note.author, self.author)
         self.assertEqual(last_note.text, self.new_note_data['text'])
 
@@ -55,9 +55,14 @@ class NoteLogicTests(CommonTestSetupMixin):
         )
 
     def test_slug_generation(self):
-        """Проверка генерации slug."""
-        generated_slug = slugify(self.note1.title)
-        self.assertEqual(self.note1.slug, generated_slug)
+        """Проверка генерации slug при создании заметки без указания слага."""
+        slug_note = Note.objects.create(
+            title='Название заметки для проверки слага',
+            text='Текст заметки для проверки слага',
+            author=self.author
+        )
+        generated_slug = slugify(slug_note.title)
+        self.assertEqual(slug_note.slug, generated_slug)
 
     def test_user_can_update_own_note(self):
         """Проверка, что пользователь может редактировать свою заметку."""
@@ -73,10 +78,16 @@ class NoteLogicTests(CommonTestSetupMixin):
 
     def test_user_can_delete_own_note(self):
         """Проверка, что пользователь может удалить свою заметку."""
-        self.author_client.post(reverse(
-            'notes:delete', kwargs={'slug': self.note1.slug})
+        test_note = Note.objects.create(
+            title='Название новой заметки',
+            text='Текст новой заметки',
+            author=self.author
         )
-        self.assertFalse(Note.objects.filter(id=self.note1.id).exists())
+        self.assertTrue(Note.objects.filter(id=test_note.id).exists())
+        self.author_client.post(reverse(
+            'notes:delete', kwargs={'slug': test_note.slug})
+        )
+        self.assertFalse(Note.objects.filter(id=test_note.id).exists())
 
     def test_user_cannot_update_other_users_note(self):
         """Проверка, что пользователь не может редактировать чужую заметку."""
@@ -85,13 +96,28 @@ class NoteLogicTests(CommonTestSetupMixin):
             text='Текст заметки',
             author=self.author
         )
+        original_title = other_note.title
+        original_text = other_note.text
         response = self.reader_client.post(
             reverse('notes:edit', kwargs={'slug': other_note.slug}),
             {'title': 'Попытка изменения чужой заметки', 'text': 'Новый текст'}
         )
         self.assertEqual(response.status_code, HTTPStatus.NOT_FOUND)
+        other_note.refresh_from_db()
+        self.assertEqual(other_note.title, original_title)
+        self.assertEqual(other_note.text, original_text)
 
     def test_user_cannot_delete_other_users_note(self):
         """Проверка, что пользователь не может удалить чужую заметку."""
-        self.reader_client.post(self.DELETE_NOTE_URL)
+        initial_note_count = Note.objects.count()
+        original_title = self.note1.title
+        original_text = self.note1.text
+
+        self.reader_client.post(reverse(
+            'notes:delete', kwargs={'slug': self.note1.slug}
+        ))
+        self.note1.refresh_from_db()
+        self.assertEqual(Note.objects.count(), initial_note_count)
+        self.assertEqual(self.note1.title, original_title)
+        self.assertEqual(self.note1.text, original_text)
         self.assertTrue(Note.objects.filter(id=self.note1.id).exists())
