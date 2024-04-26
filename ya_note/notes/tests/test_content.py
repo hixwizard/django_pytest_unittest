@@ -10,10 +10,7 @@ class NoteContentTests(CommonTestSetupMixin):
 
     def test_individual_note_passed_to_list_view(self):
         """Отдельная заметка передаётся на страницу списка заметок."""
-        response = self.author_client.get(self.LIST_VIEW_URL)
-        # этот тест всё время выдаёт ошибку, если я пробую сделать его от гостя
-        # TypeError: 'NoneType' object is not subscriptable
-        # как бы я не старался добавить заметки, у меня пустой список
+        response = self.reader_client.get(self.LIST_VIEW_URL)
         self.assertIn(self.note1, response.context['object_list'])
         self.assertIn(self.note2, response.context['object_list'])
 
